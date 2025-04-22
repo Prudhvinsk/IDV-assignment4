@@ -34,12 +34,12 @@
     <img src="https://www.sutd.edu.sg/wp-content/uploads/2024/10/SUTDLogo_Dark@2x.png" alt="SUTD Logo" />
   </header>
 
-  <h1>Singapore Population by Subzone (June 2024)</h1>
+  <h1>Singapore Population by Subzone (June 2024)</h1>
 
   <!-- Introductory Section -->
   <div class="intro-container">
     <h2>Choropleth</h2>
-    <p>This interactive choropleth map visualizes the population distribution across Singapore’s subzones in June 2024, allowing users to explore spatial patterns and variations.</p>
+    <p>This interactive choropleth map visualizes the population distribution across Singapore’s subzones in June 2024, allowing users to explore spatial patterns and variations.</p>
 
     <h2>Datasets</h2>
     <ul>
@@ -97,25 +97,33 @@
       d3.json("sgmap.json"),
       d3.csv("population2024.csv", d => ({
         PlanningArea: d['Planning Area'].trim(),
-        Subzone: d['Subzone'].trim(),
-        AgeGroup: d['Age Group'].trim(),
-        Sex: (d['Sex'].trim() === 'Males' ? 'Male' : d['Sex'].trim() === 'Females' ? 'Female' : d['Sex'].trim()),
-        DwellingType: d['Type of Dwelling'].trim(),
-        Population: d['Population'] === '-' ? 0 : +d['Population'].replace(/,/g, '').trim()
+        Subzone:       d['Subzone'].trim(),
+        AgeGroup:      d['Age Group'].trim(),
+        Sex:           d['Sex'].trim(),
+        DwellingType:  d['Type of Dwelling'].trim(),
+        Population:    d['Population']==='-'?0:+d['Population'].replace(/,/g,'').trim()
       }))
     ]).then(([geo, popData]) => {
+      // Compute global min/max population
+      const allPops = popData.map(d => d.Population).filter(v => v>0);
+      const globalMin = d3.min(allPops), globalMax = d3.max(allPops);
+      // Create a fixed color scale domain from global min/max
+      const colorScale = d3.scaleQuantize()
+        .domain([globalMin, globalMax])
+        .range(d3.schemeBlues[9]);
+
       // Populate filters
       const ageSel = d3.select("#ageSelect");
       Array.from(new Set(popData.map(d => d.AgeGroup))).sort()
         .forEach(age => ageSel.append("option").attr("value", age).text(age));
-      ageSel.property("value", "Total");
+      ageSel.property("value","Total");
 
       const dwellSel = d3.select("#dwellingSelect");
       Array.from(new Set(popData.map(d => d.DwellingType))).sort()
         .forEach(type => dwellSel.append("option").attr("value", type).text(type));
-      dwellSel.property("value", "Total");
+      dwellSel.property("value","Total");
 
-      d3.select("#sexSelect").property("value", "Total");
+      d3.select("#sexSelect").property("value","Total");
 
       updateMap();
       d3.selectAll("#sexSelect, #ageSelect, #dwellingSelect").on("change", updateMap);
@@ -126,62 +134,48 @@
         const selDwelling = d3.select("#dwellingSelect").property("value");
 
         const filtered = popData.filter(d =>
-          (selSex === "Total" || d.Sex === selSex) &&
-          (selAge === "Total" || d.AgeGroup === selAge) &&
-          (selDwelling === "Total" || d.DwellingType === selDwelling)
+          (selSex==="Total"||d.Sex===selSex)&&
+          (selAge==="Total"||d.AgeGroup===selAge)&&
+          (selDwelling==="Total"||d.DwellingType===selDwelling)
         );
+        const popMap = new Map(filtered.map(d=>[d.Subzone.toUpperCase(),d.Population]));
 
-        const pops = filtered.map(d => d.Population).filter(v => v > 0);
-        const colorScale = pops.length
-          ? d3.scaleQuantize().domain([d3.min(pops), d3.max(pops)]).range(d3.schemeBlues[9])
-          : () => '#ccc';
-
-        const minVal = pops.length ? d3.min(pops) : 0;
-        const maxVal = pops.length ? d3.max(pops) : 0;
-
+        // Legend: fixed gradient from globalMin<->globalMax
         legend.html('')
-          .append('div').attr('class','legend-label').text(minVal.toLocaleString());
+          .append('div').attr('class','legend-label').text(globalMin.toLocaleString());
         legend.append('div').attr('class','legend-gradient')
-          .style('background', `linear-gradient(to right, ${colorScale(minVal)}, ${colorScale(maxVal)})`);
-        legend.append('div').attr('class','legend-label').text(maxVal.toLocaleString());
+          .style('background',`linear-gradient(to right,${colorScale(globalMin)},${colorScale(globalMax)})`);
+        legend.append('div').attr('class','legend-label').text(globalMax.toLocaleString());
 
         const projection = d3.geoMercator()
-          .center([103.851959, 1.290270])
-          .fitSize([width, height], geo);
+          .center([103.851959,1.290270])
+          .fitSize([width,height], geo);
         const path = d3.geoPath().projection(projection);
 
-        const popMap = new Map(filtered.map(d => [d.Subzone.toUpperCase(), d.Population]));
         const regions = svg.selectAll('path').data(geo.features);
-        regions.enter().append('path')
-          .merge(regions)
-          .attr('d', path)
-          .attr('stroke', '#fff')
-          .attr('stroke-width', 1)
-          .attr('fill', d => {
+        regions.enter().append('path').merge(regions)
+          .attr('d',path)
+          .attr('stroke','#fff').attr('stroke-width',1)
+          .attr('fill',d => {
             const key = d.properties.Name.toUpperCase();
-            if (!popMap.has(key)) return '#ccc';
             const val = popMap.get(key);
-            return val > 0 ? colorScale(val) : '#eee';
+            return val>0?colorScale(val):'#ccc';
           })
-          .on('mouseover', function(event, d) {
-            d3.select(this).raise().attr('stroke', '#333').attr('stroke-width', 3);
-            const key = d.properties.Name.toUpperCase();
-            const val = popMap.has(key) ? popMap.get(key) : 0;
-            tooltip.transition().duration(50).style('opacity', 1);
-            tooltip.html(
-              `<strong>Subzone:</strong> ${d.properties.Name}<br/>` +
-              `<strong>Planning Area:</strong> ${d.properties.PlanningArea}<br/>` +
-              `<strong>Population:</strong> ${val.toLocaleString()}`
-            );
+          .on('mouseover',function(event,d){
+            d3.select(this).raise().attr('stroke','#333').attr('stroke-width',3);
+            const key=d.properties.Name.toUpperCase();
+            const val=popMap.get(key)||0;
+            tooltip.transition().duration(50).style('opacity',1);
+            tooltip.html(`<strong>Subzone:</strong> ${d.properties.Name}<br/><strong>Planning Area:</strong> ${d.properties.PlanningArea}<br/><strong>Population:</strong> ${val.toLocaleString()}`);
           })
-          .on('mousemove', event => tooltip.style('left', (event.pageX+12)+'px').style('top', (event.pageY+12)+'px'))
-          .on('mouseout', function() {
-            d3.select(this).attr('stroke', '#fff').attr('stroke-width', 1);
-            tooltip.transition().duration(50).style('opacity', 0);
+          .on('mousemove',event=>tooltip.style('left',(event.pageX+12)+'px').style('top',(event.pageY+12)+'px'))
+          .on('mouseout',function(){
+            d3.select(this).attr('stroke','#fff').attr('stroke-width',1);
+            tooltip.transition().duration(50).style('opacity',0);
           });
         regions.exit().remove();
       }
-    }).catch(err => console.error('Error loading data:', err));
+    }).catch(err=>console.error('Error loading data:',err));
   </script>
 </body>
 </html>
