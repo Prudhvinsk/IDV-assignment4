@@ -242,7 +242,14 @@
         regions.enter().append("path").merge(regions)
           .attr("d", path)
           .attr("stroke", "#666").attr("stroke-width", 1)
-          .attr("fill", d => color(filtered.find(x => x.Subzone.toUpperCase() === d.properties.Name.toUpperCase())?.Population || 0))
+          .attr("fill", d => {
+            const rec = filtered.find(x =>
+              x.Subzone.toUpperCase() === d.properties.Name.toUpperCase()
+            );
+            return rec
+              ? color(rec.Population)
+              : "#ccc";
+          })
           .on("mouseover", function(event, d) {
             d3.select(this).raise().attr("stroke", "#333").attr("stroke-width", 3);
             const rec = filtered.find(x =>
