@@ -82,7 +82,8 @@
     svg { 
       width: 100%; 
       height: auto; 
-
+      border: 1px solid #ccc; 
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
     }
     #legend { 
       display: flex; 
@@ -245,9 +246,9 @@
             const rec = filtered.find(x =>
               x.Subzone.toUpperCase() === d.properties.Name.toUpperCase()
             );
-            return rec
-              ? color(rec.Population)
-              : "#ccc";
+            return (!rec || rec.Population === 0)
+              ? "#ccc"
+              : color(rec.Population);
           })
           .on("mouseover", function(event, d) {
             d3.select(this).raise().attr("stroke", "#333").attr("stroke-width", 3);
