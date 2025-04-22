@@ -13,7 +13,7 @@
     header { background-color: #ffffff; padding: 20px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
     header img { max-height: 60px; }
     h1 { text-align: center; margin: 30px 0; font-size: 2em; font-weight: 800; }
-    .intro-container { margin: 20px 0; padding: 20px; background-color: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); max-width: 1300px; margin: auto; }
+    .intro-container { margin: 20px 0; padding: 20px; background-color: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); max-width: 1300px; margin-left: auto; margin-right: auto; }
     .intro-container h2 { margin-top: 0; }
     .container { background-color: white; border-radius: 20px; padding: 40px; box-shadow: 0 8px 20px rgba(0,0,0,0.05); margin: 30px auto; max-width: 1300px; }
     .filter-container { margin: 20px 0; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
@@ -22,9 +22,9 @@
     label { font-weight: 600; margin-right: 4px; font-size: 0.9em; }
     #map-container { text-align: center; }
     svg { width: 100%; height: auto; border: 1px solid #ccc; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    #legend { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; font-size: 12px; }
-    .legend-gradient { width: 200px; height: 10px; border: 1px solid #999; }
-    .legend-label { font-size: 12px; }
+    #legend { display: flex; justify-content: center; flex-wrap: wrap; margin-top: 10px; font-size: 12px; max-width: 1300px; margin: 0 auto 30px; }
+    .legend-item { display: flex; align-items: center; margin: 4px 12px; }
+    .legend-rect { width: 20px; height: 12px; margin-right: 4px; border: 1px solid #999; }
     .tooltip { position: absolute; pointer-events: none; background: white; padding: 6px 10px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.2); opacity: 0; transition: opacity 0.1s; }
     footer { text-align: center; padding: 20px; background-color: #ffffff; box-shadow: 0 -4px 12px rgba(0,0,0,0.05); margin-top: 50px; }
   </style>
@@ -48,7 +48,7 @@
     </ul>
 
     <h2>Visualisation</h2>
-    <p>Use the filters for Gender, Age Group, and Dwelling Type to subset the population data. Hover over any subzone polygon to see its name, planning area, and population count. Polygons without data will appear in grey.</p>
+    <p>Use the filters for Gender, Age Group, and Dwelling Type to subset the population data. Hover over any subzone polygon to see its name, planning area, and population count.</p>
   </div>
 
   <div class="container">
@@ -79,8 +79,9 @@
     <div id="map-container">
       <svg viewBox="0 0 1000 600"></svg>
     </div>
-    <div id="legend"></div>
   </div>
+
+  <div id="legend"></div>
 
   <footer>
     <p>Data from Singstat and Data.gov.sg</p>
@@ -106,25 +107,20 @@
     ]).then(([geo, popData]) => {
       // Populate filters
       const ageSel = d3.select("#ageSelect");
-      const ageGroups = Array.from(new Set(popData.map(d => d.AgeGroup))).sort();
-      ageGroups.forEach(age => ageSel.append("option").attr("value", age).text(age));
+      Array.from(new Set(popData.map(d => d.AgeGroup))).sort().forEach(age => ageSel.append("option").attr("value", age).text(age));
       ageSel.property("value", "Total");
 
       const dwellSel = d3.select("#dwellingSelect");
-      const dwellingTypes = Array.from(new Set(popData.map(d => d.DwellingType))).sort();
-      dwellingTypes.forEach(type => dwellSel.append("option").attr("value", type).text(type));
+      Array.from(new Set(popData.map(d => d.DwellingType))).sort().forEach(type => dwellSel.append("option").attr("value", type).text(type));
       dwellSel.property("value", "Total");
 
-      // Force sex filter default
       d3.select("#sexSelect").property("value", "Total");
 
       // Initial render
       updateMap();
 
       // Event listeners
-      d3.select("#sexSelect").on("change", updateMap);
-      d3.select("#ageSelect").on("change", updateMap);
-      d3.select("#dwellingSelect").on("change", updateMap);
+      d3.selectAll("#sexSelect, #ageSelect, #dwellingSelect").on("change", updateMap);
 
       function updateMap() {
         const selSex = d3.select("#sexSelect").property("value");
@@ -137,57 +133,62 @@
           (selDwelling === "Total" || d.DwellingType === selDwelling)
         );
 
-        const pops = filtered.map(d => d.Population).filter(v => v>0);
+        // Compute color scale for non-zero
+        const pops = filtered.map(d => d.Population).filter(v => v > 0);
         const color = pops.length
-          ? d3.scaleQuantize().domain([d3.min(pops), d3.max(pops)]).range(d3.schemeBlues[9])
-          : () => '#ccc';
+          ? d3.scaleQuantile().domain(pops).range(d3.schemeBlues[5])
+          : d3.scaleQuantize().domain([0,1]).range(["#eee"]);
 
-        const minVal = pops.length ? d3.min(pops) : 0;
-        const maxVal = pops.length ? d3.max(pops) : 0;
-        const minColor = pops.length ? color(minVal) : '#ddd';
-        const maxColor = pops.length ? color(maxVal) : '#555';
-
-        // Build gradient legend
+        // Build legend: clear then grey no-data + population scale
         legend.html("");
-        legend.append("div").attr("class","legend-label").text(minVal.toLocaleString());
-        legend.append("div").attr("class","legend-gradient").style("background", `linear-gradient(to right, ${minColor}, ${maxColor})`);
-        legend.append("div").attr("class","legend-label").text(maxVal.toLocaleString());
+        // No data item
+        const noData = legend.append("div").attr("class","legend-item");
+        noData.append("div").attr("class","legend-rect").style("background", "#ccc");
+        noData.append("div").text("No data");
+        if (pops.length) {
+          const thresholds = color.quantiles();
+          const rangeColors = color.range();
+          const min = d3.min(pops), max = d3.max(pops);
+          const bounds = [min].concat(thresholds).concat(max);
+          rangeColors.forEach((c,i) => {
+            const legendItem = legend.append("div").attr("class","legend-item");
+            legendItem.append("div").attr("class","legend-rect").style("background", c);
+            const from = Math.round(bounds[i]).toLocaleString();
+            const to   = Math.round(bounds[i+1]).toLocaleString();
+            legendItem.append("div").text(`${from} – ${to}`);
+          });
+        }
 
-        const projection = d3.geoMercator()
-          .center([103.851959, 1.290270])
-          .fitSize([width, height], geo);
+        const projection = d3.geoMercator().center([103.851959,1.290270]).fitSize([width,height],geo);
         const path = d3.geoPath().projection(projection);
 
-        const popMap = new Map(filtered.map(d => [d.Subzone.toUpperCase(), d.Population]));
+        // Bind and draw
         const regions = svg.selectAll("path").data(geo.features);
         regions.enter().append("path").merge(regions)
           .attr("d", path)
           .attr("stroke", "#666").attr("stroke-width", 1)
           .attr("fill", d => {
-            const key = d.properties.Name.toUpperCase();
-            if (!popMap.has(key)) return '#ccc';
-            const val = popMap.get(key);
-            return val>0 ? color(val) : '#eee';
+            const rec = filtered.find(x => x.Subzone.toUpperCase()===d.properties.Name.toUpperCase());
+            return rec && rec.Population>0 ? color(rec.Population) : "#ccc";
           })
-          .on("mouseover", function(event, d) {
-            d3.select(this).raise().attr("stroke", "#333").attr("stroke-width", 3);
-            const key = d.properties.Name.toUpperCase();
-            const val = popMap.has(key) ? popMap.get(key) : 0;
-            tooltip.transition().duration(50).style("opacity", 1);
+          .on("mouseover", function(event,d){
+            d3.select(this).raise().attr("stroke","#333").attr("stroke-width",3);
+            tooltip.transition().duration(50).style("opacity",1);
+            const rec = filtered.find(x=>x.Subzone.toUpperCase()===d.properties.Name.toUpperCase());
             tooltip.html(
-              `<strong>Subzone:</strong> ${d.properties.Name}<br/>` +
-              `<strong>Planning Area:</strong> ${d.properties.PlanningArea}<br/>` +
-              `<strong>Population:</strong> ${val.toLocaleString()}`
+              `<strong>Subzone:</strong> ${d.properties.Name}<br/>`+
+              `<strong>Planning Area:</strong> ${d.properties.PlanningArea}<br/>`+
+              `<strong>Population:</strong> ${rec?rec.Population.toLocaleString():0}`
             );
           })
-          .on("mousemove", event => tooltip.style("left", (event.pageX+12)+"px").style("top", (event.pageY+12)+"px"))
-          .on("mouseout", function() {
-            d3.select(this).attr("stroke", "#666").attr("stroke-width", 1);
-            tooltip.transition().duration(50).style("opacity", 0);
+          .on("mousemove", event=>tooltip.style("left",(event.pageX+12)+"px").style("top",(event.pageY+12)+"px"))
+          .on("mouseout", function(){
+            d3.select(this).attr("stroke","#666").attr("stroke-width",1);
+            tooltip.transition().duration(50).style("opacity",0);
           });
         regions.exit().remove();
       }
-    }).catch(err => console.error("Error loading data:", err));
+    }).catch(err=>console.error("Error loading data:",err));
   </script>
 </body>
 </html>
