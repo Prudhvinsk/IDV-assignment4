@@ -4,29 +4,123 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Singapore Population Choropleth</title>
-  <!-- D3.js -->
+
   <script src="https://d3js.org/d3.v7.min.js"></script>
-  <!-- Google Font -->
+ 
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
   <style>
-    body { font-family: 'Inter', sans-serif; background-color: #f4f6f8; margin: 0; padding: 0 40px; color: #333; }
-    header { background-color: #ffffff; padding: 20px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-    header img { max-height: 60px; }
-    h1 { text-align: center; margin: 30px 0; font-size: 2em; font-weight: 800; }
-    .intro-container { margin: 20px 0; padding: 20px; background-color: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); max-width: 1300px; margin-left: auto; margin-right: auto; }
-    .intro-container h2 { margin-top: 0; }
-    .container { background-color: white; border-radius: 20px; padding: 40px; box-shadow: 0 8px 20px rgba(0,0,0,0.05); margin: 30px auto; max-width: 1300px; }
-    .filter-container { margin: 20px 0; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
-    select { padding: 6px 14px; border-radius: 8px; border: 1px solid #aaa; background-color: #fff; color: #333; font-weight: 500; cursor: pointer; font-size: 0.9em; transition: border 0.2s; }
-    select:hover { border-color: #3498db; }
-    label { font-weight: 600; margin-right: 4px; font-size: 0.9em; }
-    #map-container { text-align: center; }
-    svg { width: 100%; height: auto; border: 1px solid #ccc; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    #legend { display: flex; justify-content: center; margin-top: 10px; font-size: 12px; }
-    .legend-item { display: flex; align-items: center; margin-right: 12px; }
-    .legend-rect { width: 20px; height: 10px; margin-right: 4px; border: 1px solid #999; }
-    .tooltip { position: absolute; pointer-events: none; background: white; padding: 6px 10px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.2); opacity: 0; transition: opacity 0.1s; }
-    footer { text-align: center; padding: 20px; background-color: #ffffff; box-shadow: 0 -4px 12px rgba(0,0,0,0.05); margin-top: 50px; }
+    body { 
+      font-family: 'Inter', sans-serif; 
+      background-color: #f4f6f8; 
+      margin: 0; padding: 0 40px; 
+      color: #333; 
+    }
+    header { 
+      background-color: #ffffff; 
+      padding: 20px; text-align: center; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
+    }
+    header img { 
+      max-height: 60px; 
+    }
+    h1 { 
+      text-align: center; 
+      margin: 30px 0; 
+      font-size: 2em; 
+      font-weight: 800; 
+    }
+    .intro-container { 
+      margin: 20px 0; 
+      padding: 20px; 
+      background-color: #fff; 
+      border-radius: 12px; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.03); 
+      max-width: 1300px; 
+      margin-left: auto; 
+      margin-right: auto; 
+    }
+    .intro-container h2 { 
+      margin-top: 0; 
+    }
+    .container { 
+      background-color: white; 
+      border-radius: 20px; 
+      padding: 40px; 
+      box-shadow: 0 8px 20px rgba(0,0,0,0.05); 
+      margin: 30px auto; 
+      max-width: 1300px; 
+    }
+    .filter-container { 
+      margin: 20px 0; 
+      display: flex; 
+      justify-content: center; 
+      gap: 12px; 
+      flex-wrap: wrap; 
+    }
+    select { 
+      padding: 6px 14px; 
+      border-radius: 8px; 
+      border: 1px solid #aaa; 
+      background-color: #fff; 
+      color: #333; 
+      font-weight: 500; 
+      cursor: pointer; 
+      font-size: 0.9em; 
+      transition: border 0.2s; 
+    }
+    select:hover { 
+      border-color: #3498db; 
+    }
+    label { 
+      font-weight: 600; 
+      margin-right: 4px; 
+      font-size: 0.9em; 
+    }
+    #map-container { 
+      text-align: center; 
+    }
+    svg { 
+      width: 100%; 
+      height: auto; 
+      border: 1px solid #ccc; 
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+    }
+    #legend { 
+      display: flex; 
+      justify-content: center; 
+      margin-top: 10px; 
+      font-size: 12px; 
+    }
+    .legend-item { 
+      display: flex; 
+      align-items: center; 
+      margin-right: 12px; 
+    }
+    .legend-rect { 
+      width: 20px; 
+      height: 10px; 
+      margin-right: 4px; 
+      border: 1px solid #999; 
+    }
+    .tooltip { 
+      position: absolute; 
+      pointer-events: none; 
+      background: white; 
+      padding: 6px 10px; 
+      border: 1px solid #aaa; 
+      border-radius: 4px; 
+      font-size: 12px; 
+      box-shadow: 0 1px 2px rgba(0,0,0,0.2); 
+      opacity: 0; 
+      transition: opacity 0.1s; 
+    }
+    footer { 
+      text-align: center; 
+      padding: 20px; 
+      background-color: #ffffff; 
+      box-shadow: 0 -4px 12px rgba(0,0,0,0.05); 
+      margin-top: 50px; 
+    }
   </style>
 </head>
 <body>
@@ -34,17 +128,16 @@
     <img src="https://www.sutd.edu.sg/wp-content/uploads/2024/10/SUTDLogo_Dark@2x.png" alt="SUTD Logo" />
   </header>
 
-  <h1>Singapore Population by Subzone (June 2024)</h1>
+  <h1>Singapore Population Choropleth</h1>
 
-  <!-- Introductory Section -->
   <div class="intro-container">
     <h2>Choropleth</h2>
     <p>This interactive choropleth map visualizes the population distribution across Singapore’s subzones in June 2024, allowing users to explore spatial patterns and variations.</p>
 
     <h2>Datasets</h2>
     <ul>
-      <li>Singapore Population Geospatial Timeseries – Singstat: <a href="https://www.singstat.gov.sg/publications/population/population-trends" target="_blank">View source</a></li>
-      <li>Master Plan 2019 Subzone Boundaries – Data.gov.sg: <a href="https://data.gov.sg/collections/1749/view" target="_blank">View source</a></li>
+      <li>Singapore Population Geospatial Timeseries – View Source: <a href="https://www.singstat.gov.sg/publications/population/population-trends" target="_blank">Singstat</a></li>
+      <li>Master Plan 2019 Subzone Boundaries – View Source: <a href="https://data.gov.sg/collections/1749/view" target="_blank">Data.gov.sg</a></li>
     </ul>
 
     <h2>Visualisation</h2>
@@ -58,8 +151,8 @@
         <label for="sexSelect">Gender:</label>
         <select id="sexSelect">
           <option value="Total">Total</option>
-          <option value="Males">Males</option>
-          <option value="Females">Females</option>
+          <option value="Male">Males</option>
+          <option value="Female">Females</option>
         </select>
       </div>
       <div>
@@ -83,8 +176,8 @@
   </div>
 
   <footer>
-    <p>Data from Singstat and Data.gov.sg</p>
-    <p>Your Name / Affiliation</p>
+    <p>Ravi Prudhvi Naga Sai Kumar - 1009460</p>
+    <p>Master of Science in Urban Science, Policy and Planning</p>
   </footer>
 
   <script>
@@ -104,7 +197,7 @@
         Population: d['Population'] === '-' ? 0 : +d['Population'].replace(/,/g, '').trim()
       }))
     ]).then(([geo, popData]) => {
-      // Populate filters
+ 
       const ageSel = d3.select("#ageSelect");
       const ageGroups = Array.from(new Set(popData.map(d => d.AgeGroup))).sort();
       ageGroups.forEach(age => ageSel.append("option").attr("value", age).text(age));
@@ -115,13 +208,10 @@
       dwellingTypes.forEach(type => dwellSel.append("option").attr("value", type).text(type));
       dwellSel.property("value", "Total");
 
-      // Force sex filter default
       d3.select("#sexSelect").property("value", "Total");
 
-      // Initial render
       updateMap();
 
-      // Event listeners
       d3.select("#sexSelect").on("change", updateMap);
       d3.select("#ageSelect").on("change", updateMap);
       d3.select("#dwellingSelect").on("change", updateMap);
@@ -170,7 +260,7 @@
           });
         regions.exit().remove();
 
-        // Legend
+
         const legendItems = svg.selectAll(".legend-item").data([]);
         legend.selectAll(".legend-item").remove();
         if (pops.length) {
