@@ -228,7 +228,7 @@
         const pops = filtered.map(d => d.Population);
         
         const step       = 20000;
-        const colors     = d3.schemeBlues[7];
+        const colors     = d3.schemeGnBu[7];
         const thresholds = d3.range(step, step * colors.length, step); 
         const color = pops.length
           ? d3.scaleThreshold().domain(thresholds).range(colors)
