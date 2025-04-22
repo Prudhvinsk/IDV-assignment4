@@ -29,7 +29,7 @@
       font-size: 2em; 
       font-weight: 800; 
     }
-    .intro-container { 
+    .intro-container {
       margin: 50px auto; 
       padding: 40px; 
       background-color: #fff; 
@@ -49,7 +49,7 @@
       max-width: 1300px; 
     }
     .filter-container { 
-      margin: 20px 0; 
+      margin: 20px 0 20px; 
       display: flex; 
       justify-content: center; 
       gap: 12px; 
@@ -228,7 +228,7 @@
         const pops = filtered.map(d => d.Population);
         
         const step       = 20000;
-        const colors     = d3.schemeGnBu[7];
+        const colors     = d3.schemeBlues[7];
         const thresholds = d3.range(step, step * colors.length, step); 
         const color = pops.length
           ? d3.scaleThreshold().domain(thresholds).range(colors)
