@@ -13,14 +13,13 @@
     header { background-color: #ffffff; padding: 20px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
     header img { max-height: 60px; }
     h1 { text-align: center; margin: 30px 0; font-size: 2em; font-weight: 800; }
+    .intro-container { margin: 20px 0; padding: 20px; background-color: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); max-width: 1300px; margin-left: auto; margin-right: auto; }
+    .intro-container h2 { margin-top: 0; }
     .container { background-color: white; border-radius: 20px; padding: 40px; box-shadow: 0 8px 20px rgba(0,0,0,0.05); margin: 30px auto; max-width: 1300px; }
     .filter-container { margin: 20px 0; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
     select { padding: 6px 14px; border-radius: 8px; border: 1px solid #aaa; background-color: #fff; color: #333; font-weight: 500; cursor: pointer; font-size: 0.9em; transition: border 0.2s; }
     select:hover { border-color: #3498db; }
     label { font-weight: 600; margin-right: 4px; font-size: 0.9em; }
-    .info-container { margin: 20px 0; padding: 15px; background-color: #eef; border-radius: 8px; }
-    .intro-container { margin: 20px 0; padding: 20px; background-color: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); max-width: 1300px; margin-left: auto; margin-right: auto; }
-    .intro-container h2 { margin-top: 0; }
     #map-container { text-align: center; }
     svg { width: 100%; height: auto; border: 1px solid #ccc; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     #legend { display: flex; justify-content: center; margin-top: 10px; font-size: 12px; }
@@ -58,7 +57,7 @@
       <div>
         <label for="sexSelect">Gender:</label>
         <select id="sexSelect">
-          <option value="Total">All</option>
+          <option value="Total">Total</option>
           <option value="Males">Male</option>
           <option value="Females">Female</option>
         </select>
@@ -66,13 +65,13 @@
       <div>
         <label for="ageSelect">Age Group:</label>
         <select id="ageSelect">
-          <option value="Total">All</option>
+          <option value="Total">Total</option>
         </select>
       </div>
       <div>
         <label for="dwellingSelect">Dwelling Type:</label>
         <select id="dwellingSelect">
-          <option value="Total">All</option>
+          <option value="Total">Total</option>
         </select>
       </div>
     </div>
@@ -101,19 +100,15 @@
         Subzone: d['Subzone'],
         AgeGroup: d['Age Group'],
         Sex: d['Sex'],
-        DwellingType: d['Dwelling Type'],
-        Population: +d['Population']
+        DwellingType: d['Type of Dwelling'],
+        Population: d['Population'] === '-' ? 0 : +d['Population'].replace(/,/g, '')
       }))
     ]).then(([geo, popData]) => {
       // Populate filters
       const ageGroups = Array.from(new Set(popData.map(d => d.AgeGroup))).sort();
-      ageGroups.forEach(age => {
-        d3.select("#ageSelect").append("option").attr("value", age).text(age);
-      });
+      ageGroups.forEach(age => d3.select("#ageSelect").append("option").attr("value", age).text(age));
       const dwellingTypes = Array.from(new Set(popData.map(d => d.DwellingType))).sort();
-      dwellingTypes.forEach(type => {
-        d3.select("#dwellingSelect").append("option").attr("value", type).text(type);
-      });
+      dwellingTypes.forEach(type => d3.select("#dwellingSelect").append("option").attr("value", type).text(type));
 
       // Initial render
       updateMap();
@@ -142,13 +137,16 @@
           .fitSize([width, height], geo);
         const path = d3.geoPath().projection(projection);
 
+        // Draw/update regions
         const regions = svg.selectAll("path").data(geo.features);
         regions.enter().append("path")
           .attr("stroke", "#666")
+          .attr("stroke-width", 1)
           .merge(regions)
           .attr("d", path)
           .attr("fill", d => color(popMap.get(d.properties.Name.toUpperCase()) || 0))
-          .on("mouseover", (event, d) => {
+          .on("mouseover", function(event, d) {
+            d3.select(this).attr("stroke", "#333").attr("stroke-width", 3);
             tooltip.transition().duration(50).style("opacity", 1);
             tooltip.html(
               `<strong>Subzone:</strong> ${d.properties.Name}<br/>` +
@@ -157,9 +155,13 @@
             );
           })
           .on("mousemove", event => tooltip.style("left", (event.pageX+12)+"px").style("top", (event.pageY+12)+"px"))
-          .on("mouseout", () => tooltip.transition().duration(50).style("opacity", 0));
+          .on("mouseout", function(event, d) {
+            d3.select(this).attr("stroke", "#666").attr("stroke-width", 1);
+            tooltip.transition().duration(50).style("opacity", 0);
+          });
         regions.exit().remove();
 
+        // Legend
         const legendData = d3.schemeBlues[9].map(c => {
           const [d0, d1] = color.invertExtent(c);
           return { color: c, range: [d0, d1] };
