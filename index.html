@@ -82,8 +82,7 @@
     svg { 
       width: 100%; 
       height: auto; 
-      border: none;
-      box-shadow: none;
+
     }
     #legend { 
       display: flex; 
@@ -132,13 +131,16 @@
 
   <div class="intro-container">
     <h2>Choropleth</h2>
-    <p>This interactive choropleth map visualizes Singapore's population trends across planning areas and subzones, allowing users to explore spatial patterns and variations.</p>
+    <p>This interactive choropleth map visualizes the Singapore's Population Trends distributed various planning areas and subzones, allowing users to explore spatial patterns and variations.</p>
 
     <h2>Datasets</h2>
     <ul>
-      <li>Singapore Population Geospatial Timeseries – <a href="https://www.singstat.gov.sg/publications/population/population-trends" target="_blank">Singstat.gov.sg</a></li>
-      <li>Master Plan 2019 Subzone Boundaries – <a href="https://data.gov.sg/collections/1749/view" target="_blank">Data.gov.sg</a></li>
+      <li>Singapore Population Geospatial Timeseries – View Source: <a href="https://www.singstat.gov.sg/publications/population/population-trends" target="_blank">Singstat.gov.sg</a></li>
+      <li>Master Plan 2019 Subzone Boundaries – View Source: <a href="https://data.gov.sg/collections/1749/view" target="_blank">Data.gov.sg</a></li>
     </ul>
+
+    <h2>Visualisation</h2>
+    <p>Use the filters for Gender, Age Group, and Dwelling Type to subset the population data. Hover over any subzone polygon to see its name, planning area, and population count.</p>
   </div>
 
   <div class="container">
@@ -153,11 +155,15 @@
       </div>
       <div>
         <label for="ageSelect">Age Group:</label>
-        <select id="ageSelect"><option value="Total">Total</option></select>
+        <select id="ageSelect">
+          <option value="Total">Total</option>
+        </select>
       </div>
       <div>
         <label for="dwellingSelect">Dwelling Type:</label>
-        <select id="dwellingSelect"><option value="Total">Total</option></select>
+        <select id="dwellingSelect">
+          <option value="Total">Total</option>
+        </select>
       </div>
     </div>
 
@@ -174,109 +180,113 @@
 
   <script>
     const width = 1000, height = 600;
-    const svg     = d3.select("svg");
+    const svg = d3.select("svg");
     const tooltip = d3.select("body").append("div").attr("class","tooltip");
-    const legend  = d3.select("#legend");
+    const legend = d3.select("#legend");
 
     Promise.all([
       d3.json("sgmap.json"),
       d3.csv("population2024.csv", d => ({
-        PlanningArea:  d['Planning Area'].trim(),
-        Subzone:       d['Subzone'].trim(),
-        AgeGroup:      d['Age Group'].trim(),
-        Sex:           d['Sex'].trim(),
-        DwellingType:  d['Type of Dwelling'].trim(),
-        Population:    d['Population'] === '-' ? 0 : +d['Population'].replace(/,/g, '').trim()
+        PlanningArea: d['Planning Area'].trim(),
+        Subzone: d['Subzone'].trim(),
+        AgeGroup: d['Age Group'].trim(),
+        Sex: d['Sex'].trim(),
+        DwellingType: d['Type of Dwelling'].trim(),
+        Population: d['Population'] === '-' ? 0 : +d['Population'].replace(/,/g, '').trim()
       }))
     ]).then(([geo, popData]) => {
-      // Populate filter dropdowns
-      const ageSel   = d3.select("#ageSelect");
-      Array.from(new Set(popData.map(d => d.AgeGroup))).sort()
-        .forEach(age => ageSel.append("option").attr("value", age).text(age));
+ 
+      const ageSel = d3.select("#ageSelect");
+      const ageGroups = Array.from(new Set(popData.map(d => d.AgeGroup))).sort();
+      ageGroups.forEach(age => ageSel.append("option").attr("value", age).text(age));
       ageSel.property("value", "Total");
 
       const dwellSel = d3.select("#dwellingSelect");
-      Array.from(new Set(popData.map(d => d.DwellingType))).sort()
-        .forEach(type => dwellSel.append("option").attr("value", type).text(type));
+      const dwellingTypes = Array.from(new Set(popData.map(d => d.DwellingType))).sort();
+      dwellingTypes.forEach(type => dwellSel.append("option").attr("value", type).text(type));
       dwellSel.property("value", "Total");
 
       d3.select("#sexSelect").property("value", "Total");
 
-      // Initial draw & event listeners
       updateMap();
-      d3.selectAll("#sexSelect, #ageSelect, #dwellingSelect").on("change", updateMap);
+
+      d3.select("#sexSelect").on("change", updateMap);
+      d3.select("#ageSelect").on("change", updateMap);
+      d3.select("#dwellingSelect").on("change", updateMap);
 
       function updateMap() {
-        // 1) Filter
-        const selSex      = d3.select("#sexSelect").property("value");
-        const selAge      = d3.select("#ageSelect").property("value");
-        const selDwelling = d3.select("#dwellingSelect").property("value");
-        const filtered = popData.filter(d =>
+        const selSex     = d3.select("#sexSelect").property("value");
+        const selAge     = d3.select("#ageSelect").property("value");
+        const selDwelling= d3.select("#dwellingSelect").property("value");
+
+        const filtered = popData.filter(d => 
           (selSex      === "Total" || d.Sex         === selSex) &&
           (selAge      === "Total" || d.AgeGroup    === selAge) &&
           (selDwelling === "Total" || d.DwellingType=== selDwelling)
         );
 
-        // 2) Population array
-        const pops = filtered.map(d => d.Population);
+        console.log('Filters', selSex, selAge, selDwelling, 'Rows:', filtered.length);
 
-        // 3) Threshold scale (20k intervals)
+        const pops = filtered.map(d => d.Population);
+        
         const step       = 20000;
-        const colors     = d3.schemeBlues[9];
-        const thresholds = d3.range(step, step * colors.length, step);
-        const colorScale = pops.length
+        const colors     = d3.schemeBlues[7];
+        const thresholds = d3.range(step, step * colors.length, step); 
+        const color = pops.length
           ? d3.scaleThreshold().domain(thresholds).range(colors)
           : () => "#ccc";
 
-        // 4) Projection & path generator
         const projection = d3.geoMercator()
           .center([103.851959, 1.290270])
           .fitSize([width, height], geo);
         const path = d3.geoPath().projection(projection);
 
-        // 5) Draw/update regions
         const regions = svg.selectAll("path").data(geo.features);
-        regions.enter().append("path");
-        svg.selectAll("path")
+        regions.enter().append("path")
+          .merge(regions)
           .attr("d", path)
-          .attr("stroke", "#666").attr("stroke-width", 1)
+          .attr("stroke", "#666")
+          .attr("stroke-width", 1)
           .attr("fill", d => {
             const rec = filtered.find(x =>
               x.Subzone.toUpperCase() === d.properties.Name.toUpperCase()
             );
             return (!rec || rec.Population === 0)
-              ? "#ccc"  // no data or zero
-              : colorScale(rec.Population);
+              ? "#ccc"
+              : color(rec.Population);
           })
+          
           .on("mouseover", function(event, d) {
             d3.select(this).raise().attr("stroke", "#333").attr("stroke-width", 3);
             const rec = filtered.find(x =>
               x.Subzone.toUpperCase() === d.properties.Name.toUpperCase()
             ) || {};
-            tooltip.transition().duration(50).style("opacity", 1)
-                   .html(
-                     `<strong>Subzone:</strong> ${d.properties.Name}<br/>` +
-                     `<strong>Planning Area:</strong> ${rec.PlanningArea || "—"}<br/>` +
-                     `<strong>Population:</strong> ${(rec.Population||0).toLocaleString()}`
-                   );
+            tooltip.transition().duration(50).style("opacity", 1);
+            tooltip.html(
+              `<strong>Subzone:</strong> ${d.properties.Name}<br/>` +
+              `<strong>Planning Area:</strong> ${rec.PlanningArea || "—"}<br/>` +
+              `<strong>Population:</strong> ${(rec.Population || 0).toLocaleString()}`
+            );
           })
-          .on("mousemove", event => 
-            tooltip.style("left", (event.pageX + 12) + "px").style("top", (event.pageY + 12) + "px"))
+          .on("mousemove", event => tooltip.style("left", (event.pageX+12)+"px").style("top", (event.pageY+12)+"px"))
           .on("mouseout", function() {
             d3.select(this).attr("stroke", "#666").attr("stroke-width", 1);
             tooltip.transition().duration(50).style("opacity", 0);
           });
         regions.exit().remove();
 
-        // 6) Legend: equal 20k intervals
+        const legendItems = svg.selectAll(".legend-item").data([]);
         legend.selectAll(".legend-item").remove();
         if (pops.length) {
           colors.forEach((c, i) => {
             const from = i * step;
             const to   = (i + 1) * step;
             const item = legend.append("div").attr("class","legend-item");
-            item.append("div").attr("class","legend-rect").style("background", c);
-            item.append("div").text(`${from.toLocaleString()} – ${to.toLocaleString()}`);
+            item.append("div")
+                .attr("class","legend-rect")
+                .style("background", c);
+            item.append("div")
+                .text(`${from.toLocaleString()} – ${to.toLocaleString()}`);
           });
         }
       }
