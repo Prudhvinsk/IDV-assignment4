@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Singapore Population Choropleth</title>
+  <!-- D3.js -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <!-- Google Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #f4f6f8; margin: 0; padding: 0 40px; color: #333; }
+    header { background-color: #ffffff; padding: 20px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    header img { max-height: 60px; }
+    h1 { text-align: center; margin: 30px 0; font-size: 2em; font-weight: 800; }
+    .container { background-color: white; border-radius: 20px; padding: 40px; box-shadow: 0 8px 20px rgba(0,0,0,0.05); margin: 30px auto; max-width: 1300px; }
+    .filter-container { margin: 20px 0; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+    select { padding: 6px 14px; border-radius: 8px; border: 1px solid #aaa; background-color: #fff; color: #333; font-weight: 500; cursor: pointer; font-size: 0.9em; transition: border 0.2s; }
+    select:hover { border-color: #3498db; }
+    label { font-weight: 600; margin-right: 4px; font-size: 0.9em; }
+    .info-container { margin: 20px 0; padding: 15px; background-color: #eef; border-radius: 8px; }
+    #map-container { text-align: center; }
+    svg { width: 100%; height: auto; border: 1px solid #ccc; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    #legend { display: flex; justify-content: center; margin-top: 10px; font-size: 12px; }
+    .legend-item { display: flex; align-items: center; margin-right: 12px; }
+    .legend-rect { width: 20px; height: 10px; margin-right: 4px; border: 1px solid #999; }
+    .tooltip { position: absolute; pointer-events: none; background: white; padding: 6px 10px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.2); opacity: 0; transition: opacity 0.1s; }
+    footer { text-align: center; padding: 20px; background-color: #ffffff; box-shadow: 0 -4px 12px rgba(0,0,0,0.05); margin-top: 50px; }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="https://www.sutd.edu.sg/wp-content/uploads/2024/10/SUTDLogo_Dark@2x.png" alt="SUTD Logo" />
+  </header>
+
+  <h1>Singapore Population by Subzone (June 2024)</h1>
+
+  <div class="container">
+    <h2>Filters</h2>
+    <div class="filter-container">
+      <div>
+        <label for="sexSelect">Gender:</label>
+        <select id="sexSelect">
+          <option value="Total">All</option>
+          <option value="Males">Male</option>
+          <option value="Females">Female</option>
+        </select>
+      </div>
+      <div>
+        <label for="ageSelect">Age Group:</label>
+        <select id="ageSelect">
+          <option value="Total">All</option>
+        </select>
+      </div>
+      <div>
+        <label for="dwellingSelect">Dwelling Type:</label>
+        <select id="dwellingSelect">
+          <option value="Total">All</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="info-container">
+      <p>This choropleth maps Singapore’s subzone populations with interactive filters for gender, age group, and dwelling type. Data sourced from Singstat and Data.gov.sg (June 2024).</p>
+    </div>
+
+    <div id="map-container">
+      <svg viewBox="0 0 1000 600"></svg>
+    </div>
+    <div id="legend"></div>
+  </div>
+
+  <footer>
+    <p>Data from Singstat and Data.gov.sg</p>
+    <p>Your Name / Affiliation</p>
+  </footer>
+
+  <script>
+    const width = 1000, height = 600;
+    const svg = d3.select("svg");
+    const tooltip = d3.select("body").append("div").attr("class","tooltip");
+    const legend = d3.select("#legend");
+
+    Promise.all([
+      d3.json("sgmap.json"),
+      d3.csv("population2024.csv", d => ({
+        PlanningArea: d['Planning Area'],
+        Subzone: d['Subzone'],
+        AgeGroup: d['Age Group'],
+        Sex: d['Sex'],
+        DwellingType: d['Type of Dwelling'],
+        Population: +d['Population']
+      }))
+    ]).then(([geo, popData]) => {
+      // Populate Age Group filter
+      const ageGroups = Array.from(new Set(popData.map(d => d.AgeGroup))).sort();
+      ageGroups.forEach(age => {
+        d3.select("#ageSelect").append("option").attr("value", age).text(age);
+      });
+      // Populate Dwelling Type filter
+      const dwellingTypes = Array.from(new Set(popData.map(d => d.DwellingType))).sort();
+      dwellingTypes.forEach(type => {
+        d3.select("#dwellingSelect").append("option").attr("value", type).text(type);
+      });
+
+      // Initial render
+      updateMap();
+
+      // Event listeners
+      d3.select("#sexSelect").on("change", updateMap);
+      d3.select("#ageSelect").on("change", updateMap);
+      d3.select("#dwellingSelect").on("change", updateMap);
+
+      function updateMap() {
+        const selSex = d3.select("#sexSelect").property("value");
+        const selAge = d3.select("#ageSelect").property("value");
+        const selDwelling = d3.select("#dwellingSelect").property("value");
+        // Filter data
+        const filtered = popData.filter(d => 
+          (selSex === "Total" || d.Sex === selSex) &&
+          (selAge === "Total" || d.AgeGroup === selAge) &&
+          (selDwelling === "Total" || d.DwellingType === selDwelling)
+        );
+        // Map Subzone -> population
+        const popMap = new Map(filtered.map(d => [d.Subzone.toUpperCase(), d.Population]));
+        // Color scale
+        const pops = filtered.map(d => d.Population);
+        const color = d3.scaleQuantize()
+          .domain([d3.min(pops), d3.max(pops)])
+          .range(d3.schemeBlues[9]);
+        // Projection & path
+        const projection = d3.geoMercator()
+          .center([103.851959, 1.290270])
+          .fitSize([width, height], geo);
+        const path = d3.geoPath().projection(projection);
+
+        // Draw/update regions
+        const regions = svg.selectAll("path").data(geo.features);
+        regions.enter().append("path")
+          .attr("stroke", "#666")
+          .merge(regions)
+          .attr("d", path)
+          .attr("fill", d => color(popMap.get(d.properties.Name.toUpperCase()) || 0))
+          .on("mouseover", (event, d) => {
+            tooltip.transition().duration(50).style("opacity", 1);
+            tooltip.html(
+              `<strong>Subzone:</strong> ${d.properties.Name}<br/>` +
+              `<strong>Planning Area:</strong> ${d.properties.PlanningArea}<br/>` +
+              `<strong>Population:</strong> ${(popMap.get(d.properties.Name.toUpperCase())||0).toLocaleString()}`
+            );
+          })
+          .on("mousemove", event => tooltip.style("left", (event.pageX+12)+"px").style("top", (event.pageY+12)+"px"))
+          .on("mouseout", () => tooltip.transition().duration(50).style("opacity", 0));
+        regions.exit().remove();
+
+        // Legend
+        const legendData = d3.schemeBlues[9].map(c => {
+          const [d0, d1] = color.invertExtent(c);
+          return { color: c, range: [d0, d1] };
+        });
+        legend.selectAll(".legend-item").remove();
+        const items = legend.selectAll(".legend-item").data(legendData).enter().append("div").attr("class","legend-item");
+        items.append("div").attr("class","legend-rect").style("background", d => d.color);
+        items.append("div").text(d => `${Math.round(d.range[0]).toLocaleString()} – ${Math.round(d.range[1]).toLocaleString()}`);
+      }
+    }).catch(err => console.error("Error loading data:", err));
+  </script>
+</body>
+</html>
