@@ -132,7 +132,7 @@
 
   <div class="intro-container">
     <h2>Choropleth</h2>
-    <p>This interactive choropleth map visualizes the population distribution across Singapore’s subzones in June 2024, allowing users to explore spatial patterns and variations.</p>
+    <p>This interactive choropleth map visualizes the Singapore's Population Trends distributed various planning areas and subzones, allowing users to explore spatial patterns and variations.</p>
 
     <h2>Datasets</h2>
     <ul>
@@ -241,7 +241,7 @@
         const regions = svg.selectAll("path").data(geo.features);
         regions.enter().append("path").merge(regions)
           .attr("d", path)
-          .attr("stroke", "#666").attr("stroke-width", 1)
+          .attr("stroke", "#fff").attr("stroke-width", 1)
           .attr("fill", d => color(filtered.find(x => x.Subzone.toUpperCase() === d.properties.Name.toUpperCase())?.Population || 0))
           .on("mouseover", function(event, d) {
             d3.select(this).raise().attr("stroke", "#333").attr("stroke-width", 3);
@@ -254,7 +254,7 @@
           })
           .on("mousemove", event => tooltip.style("left", (event.pageX+12)+"px").style("top", (event.pageY+12)+"px"))
           .on("mouseout", function() {
-            d3.select(this).attr("stroke", "#666").attr("stroke-width", 1);
+            d3.select(this).attr("stroke", "#fff").attr("stroke-width", 1);
             tooltip.transition().duration(50).style("opacity", 0);
           });
         regions.exit().remove();
