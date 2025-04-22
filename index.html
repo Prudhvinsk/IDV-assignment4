@@ -47,7 +47,7 @@
       border-radius: 20px; 
       padding: 40px; 
       box-shadow: 0 8px 20px rgba(0,0,0,0.05); 
-      margin: 30px auto; 
+      margin: 50px auto; 
       max-width: 1300px; 
     }
     .filter-container { 
@@ -228,8 +228,13 @@
         console.log('Filters', selSex, selAge, selDwelling, 'Rows:', filtered.length);
 
         const pops = filtered.map(d => d.Population);
+        const step = 20000;
+        const colors = d3.schemeBlues[9];
+        const thresholds = d3.range(step, step * colors.length, step);
         const color = pops.length
-          ? d3.scaleQuantize().domain([d3.min(pops), d3.max(pops)]).range(d3.schemeBlues[9])
+          ? d3.scaleThreshold()
+              .domain(thresholds)
+              .range(colors)
           : () => '#eee';
 
         const projection = d3.geoMercator()
@@ -272,17 +277,16 @@
         const legendItems = svg.selectAll(".legend-item").data([]);
         legend.selectAll(".legend-item").remove();
         if (pops.length) {
-          const legendData = d3.schemeBlues[9].map(c => {
-            const [d0, d1] = color.invertExtent(c);
-            return { color: c, range: [d0, d1] };
-          });
-          legendData.forEach(d => {
+          colors.forEach((c, i) => {
+            const from = i * step;
+            const to   = (i + 1) * step;
             const item = legend.append("div").attr("class","legend-item");
-            item.append("div").attr("class","legend-rect").style("background", d.color);
-            item.append("div").text(`${Math.round(d.range[0]).toLocaleString()} – ${Math.round(d.range[1]).toLocaleString()}`);
+            item.append("div").attr("class","legend-rect").style("background", c);
+            item.append("div").text(
+              `${from.toLocaleString()} – ${to.toLocaleString()}`
+            );
           });
         }
-      }
     }).catch(err => console.error("Error loading data:", err));
   </script>
 </body>
